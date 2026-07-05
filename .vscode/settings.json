@@ -1,0 +1,11 @@
+{
+    "javascript.suggest.autoImports": false,
+    "javascript.suggest.enabled": true,
+    "javascript.validate.enable": true,
+    "search.exclude": {
+        "typings/": true
+    },
+    "files.associations": {
+        "*.js": "javascript"
+    }
+}

@@ -1,0 +1,2 @@
+ConfigureMultiplayer({});
+Launch();

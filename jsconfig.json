@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "target": "ES6",
+        "module": "none",
+        "checkJs": false,
+        "allowJs": true,
+        "types": [],
+        "typeRoots": [
+            "typings"
+        ],
+        "lib": [
+            "ES6"
+        ],
+        "maxNodeModuleJsDepth": 0
+    },
+    "include": [
+        "dev/**/*.js",
+        "lib/**/*.js",
+        "main.js",
+        "launcher.js"
+    ],
+    "exclude": [
+        "node_modules",
+        ".dex"
+    ]
+}

@@ -1,0 +1,1 @@
+Translation.addTranslation("Crafting Station", {ru: "Станция крафта"});
