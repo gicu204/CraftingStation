@@ -1,10 +1,10 @@
 // Recipe list panel — left side (250px)
 // Provides functions to enumerate, filter, and select recipes
 
-var recipeSlotSize = 80;
-var recipeColumns = 2;
-var recipeSlotPadding = 8;
-var recipeStartX = 36;
+var recipeSlotSize = 72;
+var recipeColumns = 3;
+var recipeSlotPadding = 6;
+var recipeStartX = 10;
 var recipeStartY = 8;
 
 var _cachedRecipes = [];

@@ -314,8 +314,8 @@ craftingGridElements["labelAutoFill"] = {
 };
 
 var gridAreaHeight = buttonY + buttonH + 10;
-var gridWindowCap = Math.max(160, Math.min(gridAreaHeight, screenHeight * 0.42));
-var gridScrollY = Math.max(0, gridAreaHeight - screenHeight * 0.42);
+var gridWindowCap = Math.min(gridAreaHeight, screenHeight * 0.50);
+var gridScrollY = Math.max(0, gridAreaHeight - gridWindowCap);
 
 var craftingGridWindow = new UI.Window({
     location: {
@@ -331,21 +331,20 @@ var craftingGridWindow = new UI.Window({
     elements: craftingGridElements
 });
 debugLog_ui("Crafting grid window created, height=" + gridWindowCap + " scrollY=" + gridScrollY);
-debugLog_ui("Crafting grid window created, height=" + gridWindowCap);
 
-// Player inventory panel (center-bottom) — 7 per row, moved up
-var invInRow = 7;
-var invSlotSize = 60;
-var invStartX = Math.floor((440 - invInRow * invSlotSize) / 2);
+// Player inventory panel (center-bottom) — standard invSlot layout
+var invSlotSize = 167;
+var invInRow = 6;
 
 function PlayerInventorySlots(offsetY) {
     var elements = {};
+    var startX = 0;
     for (var i = 0; i < 36; i++) {
         var x = i % invInRow; 
         var y = Math.floor(i / invInRow);  
         elements["invSlot" + i] = {
             type: "invSlot",  
-            x: invStartX + x * invSlotSize,
+            x: startX + x * invSlotSize,
             y: offsetY + y * invSlotSize,
             size: invSlotSize,
             index: i,
