@@ -62,7 +62,7 @@ var recipeWindow = new UI.Window({
     location: {
         x: 5,
         y: 40,
-        width: 220,
+        width: 240,
         height: screenHeight - 45,
     },
     drawing: [
@@ -75,7 +75,7 @@ setupRecipeWindow(recipeWindow);
 
 // Crafting grid panel (center-top) — 3x3 grid + result + buttons
 var craftSlotSize = 95;
-var craftPad = 8;
+var craftPad = 7;
 var craftGridStartX = 15;
 var craftGridStartY = 6;
 
@@ -97,10 +97,10 @@ function CraftingGridElements() {
 var craftingGridElements = CraftingGridElements();
 
 // Result slot (right of grid, clickable — tap=1, long=stack)
-var resultSlotSize = 90;
+var resultSlotSize = 82;
 craftingGridElements["slotResult"] = {
     type: "slot",
-    x: 370,
+    x: 330,
     y: craftGridStartY + (3 * (craftSlotSize + craftPad) - resultSlotSize) / 2,
     size: resultSlotSize,
     clicker: {
@@ -264,7 +264,7 @@ craftingGridElements["labelCraftAll"] = {
     x: 65,
     y: buttonY + 5,
     text: "Craft All",
-    font: { color: android.graphics.Color.WHITE, size: 13, shadow: 0.5 }
+    font: { color: android.graphics.Color.WHITE, size: 20, shadow: 0.5 }
 };
 
 // "Clear" button
@@ -287,7 +287,7 @@ craftingGridElements["labelClear"] = {
     x: 215,
     y: buttonY + 5,
     text: "Clear",
-    font: { color: android.graphics.Color.WHITE, size: 13, shadow: 0.5 }
+    font: { color: android.graphics.Color.WHITE, size: 20, shadow: 0.5 }
 };
 
 // "Auto-fill" button
@@ -310,18 +310,18 @@ craftingGridElements["labelAutoFill"] = {
     x: 360,
     y: buttonY + 5,
     text: "Fill",
-    font: { color: android.graphics.Color.WHITE, size: 13, shadow: 0.5 }
+    font: { color: android.graphics.Color.WHITE, size: 20, shadow: 0.5 }
 };
 
 var gridAreaHeight = buttonY + buttonH + 10;
-var gridWindowCap = Math.max(200, Math.min(gridAreaHeight, screenHeight * 0.55));
-var gridScrollY = Math.max(0, gridAreaHeight - screenHeight * 0.55);
+var gridWindowCap = Math.max(160, Math.min(gridAreaHeight, screenHeight * 0.42));
+var gridScrollY = Math.max(0, gridAreaHeight - screenHeight * 0.42);
 
 var craftingGridWindow = new UI.Window({
     location: {
-        x: 230,
+        x: 250,
         y: 40,
-        width: 470,
+        width: 440,
         height: gridWindowCap,
         scrollY: gridScrollY,
     },
@@ -333,19 +333,19 @@ var craftingGridWindow = new UI.Window({
 debugLog_ui("Crafting grid window created, height=" + gridWindowCap + " scrollY=" + gridScrollY);
 debugLog_ui("Crafting grid window created, height=" + gridWindowCap);
 
-// Player inventory panel (center-bottom) — shifted below grid
-var invSlotSize = 167;
-var invInRow = 6;
+// Player inventory panel (center-bottom) — 7 per row, moved up
+var invInRow = 7;
+var invSlotSize = 60;
+var invStartX = Math.floor((440 - invInRow * invSlotSize) / 2);
 
 function PlayerInventorySlots(offsetY) {
     var elements = {};
-    var startX = 0;
     for (var i = 0; i < 36; i++) {
         var x = i % invInRow; 
         var y = Math.floor(i / invInRow);  
         elements["invSlot" + i] = {
             type: "invSlot",  
-            x: startX + x * invSlotSize,
+            x: invStartX + x * invSlotSize,
             y: offsetY + y * invSlotSize,
             size: invSlotSize,
             index: i,
@@ -360,10 +360,10 @@ debugLog_ui("Inventory slots created: " + Object.keys(invElements).length);
 
 var inventoryWindow = new UI.Window({
     location: {
-        x: 230,
-        y: 40 + gridWindowCap + 5,
-        width: 470,
-        height: screenHeight - (40 + gridWindowCap + 10),
+        x: 250,
+        y: 40 + gridWindowCap + 2,
+        width: 440,
+        height: screenHeight - (40 + gridWindowCap + 7),
         scrollY: invSlotSize / 2.74 * Math.trunc(36 / invInRow),
     },
     drawing: [
@@ -372,14 +372,14 @@ var inventoryWindow = new UI.Window({
     elements: invElements
 });
 inventoryWindow.setInventoryNeeded(true);
-debugLog_ui("Inventory window created, y=" + (40 + gridWindowCap + 5) + " scrollY=" + (invSlotSize / 2.74 * Math.trunc(36 / invInRow)));
+debugLog_ui("Inventory window created, y=" + (40 + gridWindowCap + 2) + " scrollY=" + (invSlotSize / 2.74 * Math.trunc(36 / invInRow)));
 
 // Connected chests panel (right side)
 var chestsWindow = new UI.Window({
     location: {
-        x: 705,
+        x: 695,
         y: 40,
-        width: 290,
+        width: 300,
         height: screenHeight - 45,
     },
     drawing: [
