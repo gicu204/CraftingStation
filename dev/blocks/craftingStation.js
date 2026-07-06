@@ -460,7 +460,7 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
         registerForWindow(chestsWindow, this.container);
 
         updateResultSlot(this.container);
-        refreshRecipeList(this.container);
+        refreshRecipeList(this.container, player);
         testRecipeAPI(this.container);
         chestsWindow.forceRefresh();
         this.container.sendChanges();

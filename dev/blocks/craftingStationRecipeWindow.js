@@ -98,38 +98,38 @@ function recipeHasItem(recipe, container) {
     return false;
 }
 
-// Try to get all workbench recipes (may not be available in all Inner Core versions)
+// Try to get all workbench recipes (convert Java Collection to JS array)
 function getAllWorkbenchRecipes() {
-    // Try multiple approaches
-    var approaches = [
-        function() { return Recipes.getWorkbenchRecipes(); },
-        function() { return Recipes.getWorkbenchRecipes ? Recipes.getWorkbenchRecipes() : null; },
-        function() { return Recipes.workbench ? Recipes.workbench : null; },
-        function() { return Recipes.getAllWorkbenchRecipes ? Recipes.getAllWorkbenchRecipes() : null; }
-    ];
-    for (var a = 0; a < approaches.length; a++) {
-        try {
-            var result = approaches[a]();
-            if (result) {
-                // Check if it's a Java Collection (has iterator + size())
-                if (typeof result.iterator == "function") {
-                    var arr = [];
-                    var iter = result.iterator();
-                    while (iter.hasNext()) arr.push(iter.next());
-                    if (arr.length > 0) return arr;
-                } else if (typeof result.length == "number" && result.length > 0) {
-                    return result;
-                } else if (typeof result.size == "function" && result.size() > 0) {
-                    return result;
-                }
+    try {
+        if (typeof Recipes.getAllWorkbenchRecipes != "function") {
+            debugLog("getAllWorkbenchRecipes: API not available");
+            return null;
+        }
+        var collection = Recipes.getAllWorkbenchRecipes();
+        if (!collection) return null;
+        var size = typeof collection.size == "function" ? collection.size() : collection.length;
+        if (!size || size <= 0) return null;
+        debugLog("getAllWorkbenchRecipes: Java Collection has " + size + " items");
+        // Convert Java Collection to JS array via iterator
+        if (typeof collection.iterator == "function") {
+            var arr = [];
+            var iter = collection.iterator();
+            while (iter.hasNext()) {
+                arr.push(iter.next());
+                if (arr.length % 200 == 0) java.lang.Thread.yield();
             }
-        } catch (e) { debugLog("getAllWorkbenchRecipes approach " + a + " failed: " + e); }
+            debugLog("getAllWorkbenchRecipes: converted to JS array, length=" + arr.length);
+            return arr;
+        }
+        return null;
+    } catch (e) {
+        debugLog("getAllWorkbenchRecipes error: " + e);
+        return null;
     }
-    return null;
 }
 
 // Refresh recipe list (called from craftingStation.js click)
-function refreshRecipeList(container) {
+function refreshRecipeList(container, playerUid) {
     debugLog_ui("refreshRecipeList called");
 
     var allRecipes = getAllWorkbenchRecipes();
@@ -143,16 +143,21 @@ function refreshRecipeList(container) {
         return;
     }
 
+    debugLog("refreshRecipeList: filtering " + allRecipes.length + " recipes for available ingredients");
     var filtered = [];
-    for (var r = 0; r < allRecipes.length; r++) {
+    var maxCheck = Math.min(allRecipes.length, 300);
+    for (var r = 0; r < maxCheck; r++) {
         if (recipeHasItem(allRecipes[r], container)) {
             filtered.push(allRecipes[r]);
         }
+        if (r % 100 == 0 && r > 0) {
+            debugLog("  checked " + r + "/" + maxCheck + " recipes, found " + filtered.length + " available");
+            java.lang.Thread.yield();
+        }
     }
     _cachedRecipes = filtered;
-    debugLog_ui("Recipes: " + allRecipes.length + " total, " + filtered.length + " available");
+    debugLog("refreshRecipeList: " + maxCheck + " checked, " + filtered.length + " available, showing up to " + totalRecipeSlots);
 
-    var content = recipeWindow.getContent();
     var maxShow = Math.min(filtered.length, totalRecipeSlots);
     for (var i = 0; i < totalRecipeSlots; i++) {
         var slotName = "recipeSlot" + i;
