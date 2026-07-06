@@ -68,9 +68,10 @@ var recipeWindow = new UI.Window({
     drawing: [
         { type: "background", color: android.graphics.Color.parseColor("#4a4a5a") }
     ],
-    elements: {}
+    elements: recipeWindowElements,
+    IsDynamic: true,
 });
-debugLog_ui("Recipe window created (empty)");
+debugLog_ui("Recipe window created (IsDynamic=true)");
 setupRecipeWindow(recipeWindow);
 
 // Crafting grid panel (center-top) — 3x3 grid + result + buttons

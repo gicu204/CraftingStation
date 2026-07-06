@@ -1,4 +1,4 @@
-// Recipe list panel — left side (250px)
+// Recipe list panel — left side (240px)
 // Provides functions to enumerate, filter, and select recipes
 
 var recipeSlotSize = 72;
@@ -9,50 +9,45 @@ var recipeStartY = 8;
 
 var _cachedRecipes = [];
 var totalRecipeSlots = 30;
+var recipeWindowElements = {};
 
-// Set up recipe window content (called from craftingStation.js after window creation)
 function setupRecipeWindow(recipeWin) {
     debugLog_ui("setupRecipeWindow called");
-    var content = recipeWin.getContent();
-    var el = content.elements;
 
-    // Create clickable recipe slots (non-visual → can be clicked, but transfer policy rejects drops)
     for (var i = 0; i < totalRecipeSlots; i++) {
         var col = i % recipeColumns;
         var row = Math.floor(i / recipeColumns);
         var sx = recipeStartX + col * (recipeSlotSize + recipeSlotPadding);
         var sy = recipeStartY + row * (recipeSlotSize + recipeSlotPadding);
 
-        (function(idx) {
-            el["recipeSlot" + i] = {
+        (function(idx, slotX, slotY) {
+            recipeWindowElements["recipeSlot" + idx] = {
                 type: "slot",
-                x: sx,
-                y: sy,
+                x: slotX,
+                y: slotY,
                 size: recipeSlotSize,
                 clicker: {
                     onClick: function(container, window, element) {
-                        onRecipeSlotClick(idx);
+                        var c = container && container.getParent ? container.getParent() : container;
+                        onRecipeSlotClick(idx, c);
                     }
                 }
             };
-        })(i);
+        })(i, sx, sy);
     }
 
     var totalRows = Math.ceil(totalRecipeSlots / recipeColumns);
     var totalHeight = totalRows * (recipeSlotSize + recipeSlotPadding) + recipeStartY;
     recipeWin.location.setScroll(0, Math.max(0, totalHeight - recipeWin.location.height));
 
-    // Info text — always shown (recipe browser API not available in this Inner Core version)
-    el["recipeInfoText"] = {
+    // Info text — always shown
+    recipeWindowElements["recipeInfoText"] = {
         type: "text",
         x: 5,
         y: totalHeight + 10,
-        text: "Recipe list:\nAPI not available",
+        text: "Recipe list - tap to fill grid",
         font: { color: android.graphics.Color.GRAY, size: 12 }
     };
-
-    recipeWin.forceRefresh();
-    debugLog_ui("Recipe window setup done: " + totalRecipeSlots + " slots, scroll=" + (totalHeight - recipeWin.location.height));
 }
 
 // Check available items across grid + inventory + chests
@@ -223,16 +218,18 @@ function returnGridItems(container) {
 }
 
 // Handle recipe slot click
-function onRecipeSlotClick(index) {
+function onRecipeSlotClick(index, container) {
     debugLog_ui("onRecipeSlotClick: index=" + index + " cachedRecipes.length=" + _cachedRecipes.length);
     if (index >= _cachedRecipes.length) { debugLog("  index out of range"); return; }
-    var container = chestData && chestData.container;
-    if (!container) { debugLog("  no container (chestData unavailable)"); return; }
-    debugLog("  chestData.container=" + (container ? "valid" : "null"));
+    if (!container) {
+        debugLog("  no container");
+        return;
+    }
+    debugLog("  container=" + (container ? "valid" : "null"));
 
     var recipe = _cachedRecipes[index];
     var result = recipe.getResult();
-    debugLog_ui("  selected recipe: result id=" + (result ? result.id : "null") + " uid=" + (recipe.getRecipeUid ? recipe.getRecipeUid() : "?"));
+    debugLog_ui("  selected recipe: result id=" + (result ? result.id : "null"));
     populateGridFromRecipe(recipe, container);
     updateResultSlot(container);
     debugLog_ui("onRecipeSlotClick done");
