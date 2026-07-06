@@ -56,21 +56,23 @@ function setupRecipeWindow(recipeWin) {
 }
 
 // Check available items across grid + inventory + chests
-function countAvailableItem(itemId, itemData, container) {
+function countAvailableItem(itemId, itemData, container, playerUid) {
     var total = 0;
     for (var i = 0; i < 9; i++) {
         var slot = container.getSlot("slotGrid" + i);
         if (slot && slot.id == itemId && (slot.data == itemData || itemData == -1)) total += slot.count;
     }
-    try {
-        var player = new PlayerActor(Player.get());
-        if (player) {
-            for (var i = 0; i < 36; i++) {
-                var invSlot = player.getInventorySlot(i);
-                if (invSlot && invSlot.id == itemId && (invSlot.data == itemData || itemData == -1)) total += invSlot.count;
+    if (playerUid) {
+        try {
+            var player = new PlayerActor(playerUid);
+            if (player) {
+                for (var i = 0; i < 36; i++) {
+                    var invSlot = player.getInventorySlot(i);
+                    if (invSlot && invSlot.id == itemId && (invSlot.data == itemData || itemData == -1)) total += invSlot.count;
+                }
             }
-        }
-    } catch (e) {}
+        } catch (e) {}
+    }
     for (var side = 0; side < 6; side++) {
         if (sideInfo && sideInfo[side] && sideInfo[side].present) {
             for (var s = 0; s < sideInfo[side].length_; s++) {
@@ -83,7 +85,7 @@ function countAvailableItem(itemId, itemData, container) {
 }
 
 // Check if a recipe has any ingredient available
-function recipeHasItem(recipe, container) {
+function recipeHasItem(recipe, container, playerUid) {
     try {
         var entries = recipe.getEntries();
         if (!entries) return false;
@@ -92,7 +94,7 @@ function recipeHasItem(recipe, container) {
             var entry = iter.next();
             var eid = entry.getId();
             var edata = entry.getData();
-            if (eid > 0 && countAvailableItem(eid, edata, container) > 0) return true;
+            if (eid > 0 && countAvailableItem(eid, edata, container, playerUid) > 0) return true;
         }
     } catch (e) { debugLog("recipeHasItem error: " + e); }
     return false;
@@ -147,7 +149,7 @@ function refreshRecipeList(container, playerUid) {
     var filtered = [];
     var maxCheck = Math.min(allRecipes.length, 300);
     for (var r = 0; r < maxCheck; r++) {
-        if (recipeHasItem(allRecipes[r], container)) {
+        if (recipeHasItem(allRecipes[r], container, playerUid)) {
             filtered.push(allRecipes[r]);
         }
         if (r % 100 == 0 && r > 0) {
@@ -190,7 +192,7 @@ function populateGridFromRecipe(recipe, container) {
             if (entry && entry.getId() > 0) {
                 var eid = entry.getId();
                 var edata = entry.getData();
-                var avail = countAvailableItem(eid, edata, container);
+                var avail = countAvailableItem(eid, edata, container, null);
                 var count = Math.min(avail, entry.getCount());
                 debugLog_ui("  slotGrid" + i + ": id=" + eid + " count=" + count + " avail=" + avail + " need=" + entry.getCount());
                 container.setSlot("slotGrid" + i, eid, count, edata > -1 ? edata : 0);
