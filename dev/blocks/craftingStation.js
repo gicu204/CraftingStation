@@ -126,14 +126,14 @@ function refillGridFromChests(container, recipe, playerUid) {
         var anyRefilled = false;
         for (var i = 0; i < 9; i++) {
             var entry = entries[i];
-            if (!entry || entry.getId() <= 0) continue;
+            if (!entry || entry.id <= 0) continue;
             var gridSlot = container.getSlot("slotGrid" + i);
-            var need = entry.getCount();
+            var need = entry.count;
             var have = gridSlot ? gridSlot.count : 0;
             var missing = need - have;
             if (missing <= 0) continue;
 
-            debugLog_event("  refill slotGrid" + i + ": need=" + need + " have=" + have + " missing=" + missing + " item=" + entry.getId());
+            debugLog_event("  refill slotGrid" + i + ": need=" + need + " have=" + have + " missing=" + missing + " item=" + entry.id);
 
             // Pull from player inventory first
             if (playerUid) {
@@ -141,7 +141,7 @@ function refillGridFromChests(container, recipe, playerUid) {
                     var player = new PlayerActor(playerUid);
                     for (var pi = 0; pi < 36 && missing > 0; pi++) {
                         var invSlot = player.getInventorySlot(pi);
-                        if (invSlot && invSlot.id == entry.getId() && (invSlot.data == entry.getData() || entry.getData() == -1) && invSlot.count > 0) {
+                        if (invSlot && invSlot.id == entry.id && (invSlot.data == entry.data || entry.data == -1) && invSlot.count > 0) {
                             var take = Math.min(invSlot.count, missing);
                             player.setInventorySlot(pi, invSlot.id, invSlot.count - take, invSlot.data, invSlot.extra);
                             missing -= take;
@@ -152,7 +152,7 @@ function refillGridFromChests(container, recipe, playerUid) {
                 } catch (e) {}
             }
             if (have > 0) {
-                container.setSlot("slotGrid" + i, entry.getId(), have, entry.getData() > -1 ? entry.getData() : 0);
+                container.setSlot("slotGrid" + i, entry.id, have, entry.data > -1 ? entry.data : 0);
                 anyRefilled = true;
             }
         }
@@ -167,8 +167,8 @@ function recipeMatchesGrid(container, recipe) {
         for (var i = 0; i < 9; i++) {
             var entry = entries[i];
             var slot = container.getSlot("slotGrid" + i);
-            if (entry && entry.getId() > 0) {
-                if (!slot || slot.id != entry.getId() || slot.count < entry.getCount()) return false;
+            if (entry && entry.id > 0) {
+                if (!slot || slot.id != entry.id || slot.count < entry.count) return false;
             } else {
                 if (slot && slot.id > 0) return false;
             }
@@ -966,13 +966,13 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
                 var totalTaken = 0;
                 for (var i = 0; i < 9; i++) {
                     var entry = entries[i];
-                    if (!entry || entry.getId() <= 0) continue;
+                    if (!entry || entry.id <= 0) continue;
                     var gridSlot = this.container.getSlot("slotGrid" + i);
-                    var need = entry.getCount();
+                    var need = entry.count;
                     var have = gridSlot ? gridSlot.count : 0;
                     var missing = need - have;
                     if (missing <= 0) continue;
-                    debugLog_event("  slotGrid" + i + ": need=" + need + " have=" + have + " missing=" + missing + " item=" + entry.getId());
+                    debugLog_event("  slotGrid" + i + ": need=" + need + " have=" + have + " missing=" + missing + " item=" + entry.id);
 
                     // Search chests first
                     var taken = 0;
@@ -983,7 +983,7 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
                                 var slots = storage.getContainerSlots();
                                 for (var si = 0; si < slots.length && taken < missing; si++) {
                                     var chestSlot = storage.getSlot(slots[si]);
-                                    if (chestSlot && chestSlot.id == entry.getId() && (chestSlot.data == entry.getData() || entry.getData() == -1) && chestSlot.count > 0) {
+                                    if (chestSlot && chestSlot.id == entry.id && (chestSlot.data == entry.data || entry.data == -1) && chestSlot.count > 0) {
                                         var take = Math.min(chestSlot.count, missing - taken);
                                         storage.setSlot(slots[si], chestSlot.id, chestSlot.count - take, chestSlot.data, chestSlot.extra);
                                         taken += take;
@@ -1000,7 +1000,7 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
                             var player = new PlayerActor(connectedClient.getPlayerUid());
                             for (var pi = 0; pi < 36 && taken < missing; pi++) {
                                 var invSlot = player.getInventorySlot(pi);
-                                if (invSlot && invSlot.id == entry.getId() && (invSlot.data == entry.getData() || entry.getData() == -1) && invSlot.count > 0) {
+                                if (invSlot && invSlot.id == entry.id && (invSlot.data == entry.data || entry.data == -1) && invSlot.count > 0) {
                                     var take = Math.min(invSlot.count, missing - taken);
                                     player.setInventorySlot(pi, invSlot.id, invSlot.count - take, invSlot.data, invSlot.extra);
                                     taken += take;
@@ -1011,7 +1011,7 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
                     }
 
                     if (taken > 0) {
-                        this.container.setSlot("slotGrid" + i, entry.getId(), have + taken, entry.getData() > -1 ? entry.getData() : 0);
+                        this.container.setSlot("slotGrid" + i, entry.id, have + taken, entry.data > -1 ? entry.data : 0);
                         totalTaken += taken;
                     }
                 }
