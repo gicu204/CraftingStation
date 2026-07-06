@@ -111,13 +111,15 @@ function getAllWorkbenchRecipes() {
         try {
             var result = approaches[a]();
             if (result) {
-                // Check if it's iterable (Java Collection or Array)
+                // Check if it's a Java Collection (has iterator + size())
                 if (typeof result.iterator == "function") {
                     var arr = [];
                     var iter = result.iterator();
                     while (iter.hasNext()) arr.push(iter.next());
                     if (arr.length > 0) return arr;
-                } else if (result.length > 0) {
+                } else if (typeof result.length == "number" && result.length > 0) {
+                    return result;
+                } else if (typeof result.size == "function" && result.size() > 0) {
                     return result;
                 }
             }

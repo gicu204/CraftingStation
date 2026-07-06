@@ -226,15 +226,16 @@ function testRecipeAPI(container) {
     } catch (e) { debugLog("  getRecipeByField(container, 'slotGrid') error: " + e); }
     try {
         var all = Recipes.getAllWorkbenchRecipes();
-        debugLog("  getAllWorkbenchRecipes() -> " + (all ? "type=" + typeof all + " length=" + all.length : "null"));
+        var allSize = all ? (typeof all.size == "function" ? all.size() : all.length) : 0;
+        debugLog("  getAllWorkbenchRecipes() -> " + (all ? "found count=" + allSize : "null"));
     } catch (e) { debugLog("  getAllWorkbenchRecipes() error: " + e); }
     try {
         var byResult = Recipes.getWorkbenchRecipesByResult(5, 1, 0);
-        debugLog("  getWorkbenchRecipesByResult(5,1,0) -> " + (byResult ? "type=" + typeof byResult : "null"));
+        debugLog("  getWorkbenchRecipesByResult(5,1,0) -> " + (byResult ? "count=" + (typeof byResult.size == "function" ? byResult.size() : byResult.length) : "null"));
     } catch (e) { debugLog("  getWorkbenchRecipesByResult error: " + e); }
     try {
         var byIng = Recipes.getWorkbenchRecipesByIngredient(5, 0);
-        debugLog("  getWorkbenchRecipesByIngredient(5,0) -> " + (byIng ? "type=" + typeof byIng : "null"));
+        debugLog("  getWorkbenchRecipesByIngredient(5,0) -> " + (byIng ? "count=" + (typeof byIng.size == "function" ? byIng.size() : byIng.length) : "null"));
     } catch (e) { debugLog("  getWorkbenchRecipesByIngredient error: " + e); }
     try {
         var provided = Recipes.provideRecipeForPlayer(container, "", -1);
@@ -330,7 +331,7 @@ var craftingGridWindow = new UI.Window({
     elements: craftingGridElements
 });
 debugLog_ui("Crafting grid window created, height=" + gridWindowCap + " scrollY=" + gridScrollY);
-debugLog_ui("Crafting grid window created, height=" + gridWindowHeight);
+debugLog_ui("Crafting grid window created, height=" + gridWindowCap);
 
 // Player inventory panel (center-bottom) — shifted below grid
 var invSlotSize = 167;
@@ -371,7 +372,7 @@ var inventoryWindow = new UI.Window({
     elements: invElements
 });
 inventoryWindow.setInventoryNeeded(true);
-debugLog_ui("Inventory window created, y=" + (40 + gridWindowHeight + 5) + " scrollY=" + (invSlotSize / 2.74 * Math.trunc(36 / invInRow)));
+debugLog_ui("Inventory window created, y=" + (40 + gridWindowCap + 5) + " scrollY=" + (invSlotSize / 2.74 * Math.trunc(36 / invInRow)));
 
 // Connected chests panel (right side)
 var chestsWindow = new UI.Window({
