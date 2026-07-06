@@ -54,14 +54,35 @@ function infoAllSides(blockSource, x, y, z) {
     debugLog_chest("infoAllSides done — sideInfo: " + JSON.stringify(sideInfo));
 }
 
-// Removes all chest slot references from container and UI
+// Removes all chest slot references from container and UI (preserves grid slots)
 function clearEverything(container, window) {
     debugLog_chest("clearEverything called — container=" + (container ? "valid" : "null") + " window=" + (window ? "valid" : "null"));
     chestData.valid = false;
     var storage = StorageInterface.getInterface(container);
-    var list = storage.getContainerSlots();
-    debugLog_chest("  clearing " + list.length + " container slots");
+
+    // Save grid slots before clearing
+    var gridSlots = {};
+    for (var i = 0; i < 9; i++) {
+        var gs = container.getSlot("slotGrid" + i);
+        if (gs && gs.id > 0) {
+            gridSlots["slotGrid" + i] = { id: gs.id, count: gs.count, data: gs.data, extra: gs.extra || null };
+        }
+    }
+    var savedCount = Object.keys(gridSlots).length;
+    debugLog_chest("clearEverything: saved " + savedCount + " grid slots");
+
     storage.clearContainer();
+
+    // Restore grid slots
+    var restoredCount = 0;
+    for (var i = 0; i < 9; i++) {
+        var key = "slotGrid" + i;
+        if (gridSlots[key]) {
+            container.setSlot(key, gridSlots[key].id, gridSlots[key].count, gridSlots[key].data, gridSlots[key].extra);
+            restoredCount++;
+        }
+    }
+
     for (var side = 0; side < 6; side++) {
         var length = sideInfo[side].length_ || 0;
         if (length > 0) debugLog_chest("  clearing side " + side + " (" + length + " slots)");
@@ -78,7 +99,8 @@ function clearEverything(container, window) {
             lastY: 0
         }
     }
-    debugLog_chest("clearEverything done");
+    container.sendChanges();
+    debugLog_chest("clearEverything done (grid preserved)");
 }
 
 // Calculates scroll height based on total slot content height

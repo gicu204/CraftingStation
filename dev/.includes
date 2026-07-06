@@ -8,6 +8,7 @@ translate.js
 // mechanics
 blocks/ChestTransferLogic.js
 blocks/craftingStationChestsWindow.js
+blocks/craftingStationRecipeWindow.js
 blocks/craftingStation.js
 
 

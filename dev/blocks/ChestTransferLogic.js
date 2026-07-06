@@ -17,6 +17,10 @@ function StringToBitmap(encodedString) {
 _TextureSource.put('___transferBarFull', StringToBitmap("iVBORw0KGgoAAAANSUhEUgAAAA8AAAADCAIAAADDdsJmAAAAEUlEQVR4AWNk+M9APGCkoWoADp8DAS0NIF4AAAAASUVORK5CYII="));
 _TextureSource.put('___transferBarEmpty', StringToBitmap("iVBORw0KGgoAAAANSUhEUgAAAA8AAAADCAIAAADDdsJmAAAAEklEQVR4AWP08fFlIBow0lA1APMhArOjizwiAAAAAElFTkSuQmCC"));
 
+function isGridSlot(name) {
+    return typeof name == "string" && name.indexOf("slotGrid") == 0;
+}
+
 function getScrollY(window) {
     var view = window.layout;
     var scrollY = 0;
@@ -65,6 +69,8 @@ function defaultChestData() {
         valid: false,
         container: null,
         currentWindow: null,
+        sourceSlot: null,
+        sourceSlotType: null,
         start: false,
         item: {
             maxCount: 0,
@@ -350,18 +356,47 @@ function registerForWindow(_window, _container, _options) {
                 return;
             }
             chestData.item.count = Math.min(Math.floor(chestData.item.count), chestData.item.maxCount);
-            if (currentSlotType) {
-                if (chestData.selectedSlotType == 0) {
-                    chestData.container.sendEvent("InventorySlotToContainerSlot", { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
-                } else {
-                    chestData.container.sendEvent("SlotToSlot", { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+            var targetIsGrid = currentSlotType && isGridSlot(slot_id);
+            var sourceIsGrid = chestData.selectedSlotType && isGridSlot(chestData.selectedSlot);
+            if (targetIsGrid || sourceIsGrid) {
+                var eventName;
+                if (targetIsGrid && sourceIsGrid) {
+                    eventName = "gridToGrid";
+                    chestData.container.sendEvent(eventName, { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                } else if (targetIsGrid && chestData.selectedSlotType == 0) {
+                    eventName = "inventoryToGrid";
+                    chestData.container.sendEvent(eventName, { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                } else if (sourceIsGrid && !currentSlotType) {
+                    eventName = "gridToInventory";
+                    chestData.container.sendEvent(eventName, { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                } else if (targetIsGrid && chestData.selectedSlotType == 1) {
+                    eventName = "chestToGrid";
+                    chestData.container.sendEvent(eventName, { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                } else if (sourceIsGrid && currentSlotType) {
+                    eventName = "gridToChest";
+                    chestData.container.sendEvent(eventName, { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
                 }
+                debugLog_event("Dispatching " + eventName + " src=" + chestData.selectedSlot + " dst=" + slot_id + " val=" + (value || 1));
             } else {
-                if (chestData.selectedSlotType == 0) {
-                    chestData.container.sendEvent("InventorySlotToSlot", { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                var eventName;
+                if (currentSlotType) {
+                    if (chestData.selectedSlotType == 0) {
+                        eventName = "InventorySlotToContainerSlot";
+                        chestData.container.sendEvent(eventName, { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                    } else {
+                        eventName = "SlotToSlot";
+                        chestData.container.sendEvent(eventName, { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                    }
                 } else {
-                    chestData.container.sendEvent("SlotToInventorySlot", { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                    if (chestData.selectedSlotType == 0) {
+                        eventName = "InventorySlotToSlot";
+                        chestData.container.sendEvent(eventName, { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                    } else {
+                        eventName = "SlotToInventorySlot";
+                        chestData.container.sendEvent(eventName, { slot1: chestData.selectedSlot, slot2: slot_id, value: value });
+                    }
                 }
+                debugLog_event("Dispatching " + eventName + " src=" + chestData.selectedSlot + " dst=" + slot_id + " val=" + (value || 1));
             }
             var scrollY = getScrollY(element.window);
             chestData.anim.pos2 = {
@@ -399,12 +434,12 @@ function registerForWindow(_window, _container, _options) {
         if (event.type == 'CLICK') event_type = 'UP';
         if (event_type == 'DOWN') {
             if (item.id == 0 || chestData.selectedSlot != null) return;
-            chestData.selectedSlot = slot_id;
-            chestData.selectedSlotType = currentSlotType;
             chestData.item = {
                 maxCount: item.count,
                 count: 1
             }
+            chestData.sourceSlot = slot_id;
+            chestData.sourceSlotType = currentSlotType;
             chestData.pre_selectedSlot = slot_id;
             chestData.start = World.getThreadTime() + 10;
             chestData.tickStarted = false;
@@ -425,14 +460,12 @@ function registerForWindow(_window, _container, _options) {
             };
         }
         if (event_type == 'UP') {
-            if (!chestData.start) return;
+            if (chestData.selectedSlot != null || !chestData.start) return;
             chestData.start = false;
+            chestData.selectedSlot = slot_id;
+            chestData.selectedSlotType = currentSlotType;
             chestData.pre_selectedSlot = null;
-            if (chestData.selectedSlot == null) {
-                chestData.selectedSlot = slot_id;
-                chestData.selectedSlotType = currentSlotType;
-                if (!chestData.tickStarted) chestData.item.count = chestData.item.maxCount;
-            }
+            if (!chestData.tickStarted) chestData.item.count = chestData.item.maxCount;
         }
     }
 
