@@ -1,5 +1,5 @@
 // Recipe list panel — left side (240px)
-// Provides functions to enumerate, filter, and select recipes
+// Shows ALL recipe results, darkens unavailable ones (Refined Storage pattern)
 
 var recipeSlotSize = 72;
 var recipeColumns = 3;
@@ -8,6 +8,7 @@ var recipeStartX = 10;
 var recipeStartY = 8;
 
 var _cachedRecipes = [];
+var _recipeDarkenMap = {};
 var totalRecipeSlots = 30;
 var recipeWindowElements = {};
 
@@ -40,17 +41,32 @@ function setupRecipeWindow(recipeWin) {
     var totalHeight = totalRows * (recipeSlotSize + recipeSlotPadding) + recipeStartY;
     recipeWin.location.setScroll(0, Math.max(0, totalHeight - recipeWin.location.height));
 
-    // Info text — always shown
     recipeWindowElements["recipeInfoText"] = {
         type: "text",
         x: 5,
         y: totalHeight + 10,
-        text: "Recipe list - tap to fill grid",
+        text: "Tap a recipe to fill grid",
         font: { color: android.graphics.Color.GRAY, size: 12 }
     };
 }
 
-// Check available items across grid + inventory + chests
+// Search player inventory server-side (Refined Storage searchItem pattern)
+function searchInventory(itemId, itemData, playerUid) {
+    if (!playerUid) return null;
+    try {
+        var player = new PlayerActor(playerUid);
+        if (!player) return null;
+        for (var i = 0; i < 36; i++) {
+            var slot = player.getInventorySlot(i);
+            if (slot && slot.id == itemId && (slot.data == itemData || itemData == -1) && slot.count > 0) {
+                return slot;
+            }
+        }
+    } catch (e) {}
+    return null;
+}
+
+// Count available items across grid + inventory + chests
 function countAvailableItem(itemId, itemData, container, playerUid) {
     var total = 0;
     for (var i = 0; i < 9; i++) {
@@ -58,15 +74,8 @@ function countAvailableItem(itemId, itemData, container, playerUid) {
         if (slot && slot.id == itemId && (slot.data == itemData || itemData == -1)) total += slot.count;
     }
     if (playerUid) {
-        try {
-            var player = new PlayerActor(playerUid);
-            if (player) {
-                for (var i = 0; i < 36; i++) {
-                    var invSlot = player.getInventorySlot(i);
-                    if (invSlot && invSlot.id == itemId && (invSlot.data == itemData || itemData == -1)) total += invSlot.count;
-                }
-            }
-        } catch (e) {}
+        var invItem = searchInventory(itemId, itemData, playerUid);
+        if (invItem) total += invItem.count;
     }
     for (var side = 0; side < 6; side++) {
         if (sideInfo && sideInfo[side] && sideInfo[side].present) {
@@ -79,60 +88,52 @@ function countAvailableItem(itemId, itemData, container, playerUid) {
     return total;
 }
 
-// Check if a recipe has any ingredient available
-function recipeHasItem(recipe, container, playerUid) {
+// Check if ALL ingredients of a recipe are available (for darken)
+function isRecipeCraftable(recipe, container, playerUid) {
     try {
         var entries = recipe.getSortedEntries();
         if (!entries) return false;
         var len = entries.length || 0;
         for (var i = 0; i < len; i++) {
             var entry = entries[i];
-            if (!entry) continue;
-            var eid = entry.id;
-            var edata = entry.data;
-            if (eid > 0 && countAvailableItem(eid, edata, container, playerUid) > 0) return true;
+            if (!entry || !entry.id || entry.id <= 0) continue;
+            var need = entry.count || 1;
+            var have = countAvailableItem(entry.id, entry.data, container, playerUid);
+            if (have < need) return false;
         }
-    } catch (e) { debugLog("recipeHasItem error: " + e); }
-    return false;
+        return true;
+    } catch (e) { return false; }
 }
 
-// Try to get all workbench recipes (convert Java Collection to JS array)
+// Convert Java Collection to JS array
 function getAllWorkbenchRecipes() {
     try {
-        if (typeof Recipes.getAllWorkbenchRecipes != "function") {
-            debugLog("getAllWorkbenchRecipes: API not available");
-            return null;
-        }
+        if (typeof Recipes.getAllWorkbenchRecipes != "function") return null;
         var collection = Recipes.getAllWorkbenchRecipes();
         if (!collection) return null;
         var size = typeof collection.size == "function" ? collection.size() : collection.length;
         if (!size || size <= 0) return null;
-        debugLog("getAllWorkbenchRecipes: Java Collection has " + size + " items");
-        // Convert Java Collection to JS array via iterator
-        if (typeof collection.iterator == "function") {
-            var arr = [];
-            var iter = collection.iterator();
-            while (iter.hasNext()) {
-                arr.push(iter.next());
-                if (arr.length % 200 == 0) java.lang.Thread.yield();
-            }
-            debugLog("getAllWorkbenchRecipes: converted to JS array, length=" + arr.length);
-            return arr;
+        if (typeof collection.iterator != "function") return null;
+        var arr = [];
+        var iter = collection.iterator();
+        while (iter.hasNext()) {
+            arr.push(iter.next());
+            if (arr.length % 500 == 0) java.lang.Thread.yield();
         }
-        return null;
+        debugLog("getAllWorkbenchRecipes: " + arr.length + " recipes loaded");
+        return arr;
     } catch (e) {
         debugLog("getAllWorkbenchRecipes error: " + e);
         return null;
     }
 }
 
-// Refresh recipe list (called from craftingStation.js click)
+// Refresh recipe list — shows ALL recipes with darken for unavailable
 function refreshRecipeList(container, playerUid) {
-    debugLog_ui("refreshRecipeList called");
+    debugLog("refreshRecipeList called");
 
     var allRecipes = getAllWorkbenchRecipes();
     if (!allRecipes) {
-        debugLog_ui("Recipe enumeration not available in this Inner Core version");
         for (var i = 0; i < totalRecipeSlots; i++) {
             container.setSlot("recipeSlot" + i, 0, 0, 0);
         }
@@ -141,45 +142,64 @@ function refreshRecipeList(container, playerUid) {
         return;
     }
 
-    debugLog("refreshRecipeList: filtering " + allRecipes.length + " recipes for available ingredients");
-    var filtered = [];
-    var maxCheck = Math.min(allRecipes.length, 300);
-    for (var r = 0; r < maxCheck; r++) {
-        if (recipeHasItem(allRecipes[r], container, playerUid)) {
-            filtered.push(allRecipes[r]);
-        }
-        if (r % 100 == 0 && r > 0) {
-            debugLog("  checked " + r + "/" + maxCheck + " recipes, found " + filtered.length + " available");
-            java.lang.Thread.yield();
-        }
-    }
-    _cachedRecipes = filtered;
-    debugLog("refreshRecipeList: " + maxCheck + " checked, " + filtered.length + " available, showing up to " + totalRecipeSlots);
+    // Run in background thread (Refined Storage pattern)
+    var thread = java.lang.Thread({
+        run: function() {
+            try {
+                var totalToShow = Math.min(allRecipes.length, totalRecipeSlots);
+                var darkenMap = {};
 
-    var maxShow = Math.min(filtered.length, totalRecipeSlots);
-    for (var i = 0; i < totalRecipeSlots; i++) {
-        var slotName = "recipeSlot" + i;
-        if (i < maxShow) {
-            var result = filtered[i].getResult();
-            container.setSlot(slotName, result ? result.id : 0, result ? result.count : 0, result ? result.data : 0, result ? result.extra || null : null);
-        } else {
-            container.setSlot(slotName, 0, 0, 0);
+                // Show first N recipes, check craftable status
+                for (var r = 0; r < totalToShow; r++) {
+                    var recipe = allRecipes[r];
+                    var result = recipe.getResult();
+                    if (result) {
+                        container.setSlot("recipeSlot" + r, result.id, result.count, result.data, result.extra || null);
+                    } else {
+                        container.setSlot("recipeSlot" + r, 0, 0, 0);
+                    }
+                    darkenMap["recipeSlot" + r] = !isRecipeCraftable(recipe, container, playerUid);
+                    if (r % 50 == 0) java.lang.Thread.yield();
+                }
+
+                // Clear remaining slots
+                for (var r = totalToShow; r < totalRecipeSlots; r++) {
+                    container.setSlot("recipeSlot" + r, 0, 0, 0);
+                }
+
+                _cachedRecipes = allRecipes.slice(0, totalToShow);
+                _recipeDarkenMap = darkenMap;
+                container.sendChanges();
+
+                // Apply darken on main thread
+                UI.getContext().runOnUiThread(new java.lang.Runnable({
+                    run: function() {
+                        for (var key in darkenMap) {
+                            if (recipeWindowElements[key]) {
+                                recipeWindowElements[key].darken = darkenMap[key];
+                            }
+                        }
+                        recipeWindow.forceRefresh();
+                        debugLog("refreshRecipeList: " + totalToShow + " recipes shown, " + Object.keys(darkenMap).filter(function(k) { return darkenMap[k]; }).length + " darkened");
+                    }
+                }));
+            } catch (e) {
+                debugLog("refreshRecipeList thread error: " + e);
+            }
         }
-    }
-    container.sendChanges();
-    recipeWindow.forceRefresh();
+    });
+    thread.setPriority(java.lang.Thread.MIN_PRIORITY);
+    thread.start();
 }
 
 // Populate crafting grid from recipe
 function populateGridFromRecipe(recipe, container) {
     if (!recipe) return;
     var result = recipe.getResult();
-    debugLog_ui("populateGridFromRecipe: result=" + (result ? result.id : "null"));
+    debugLog("populateGridFromRecipe: result=" + (result ? result.id : "null"));
 
-    // Return existing grid items
     returnGridItems(container);
 
-    // Fill grid with recipe
     var placed = 0;
     try {
         var entries = recipe.getSortedEntries();
@@ -188,9 +208,9 @@ function populateGridFromRecipe(recipe, container) {
             if (entry && entry.id > 0) {
                 var eid = entry.id;
                 var edata = entry.data;
-                var avail = countAvailableItem(eid, edata, container, null);
-                var count = Math.min(avail, entry.count);
-                debugLog_ui("  slotGrid" + i + ": id=" + eid + " count=" + count + " avail=" + avail + " need=" + entry.count);
+                var need = entry.count || 1;
+                var avail = countAvailableItem(eid, edata, container, Player.get());
+                var count = Math.min(avail, need);
                 container.setSlot("slotGrid" + i, eid, count, edata > -1 ? edata : 0);
                 if (count > 0) placed++;
             } else {
@@ -199,10 +219,9 @@ function populateGridFromRecipe(recipe, container) {
         }
     } catch (e) { debugLog("populateGridFromRecipe error: " + e); }
     container.sendChanges();
-    debugLog_ui("populateGridFromRecipe done: " + placed + " slots with items");
+    debugLog("populateGridFromRecipe done: " + placed + " slots with items");
 }
 
-// Return grid items to player inventory
 function returnGridItems(container) {
     for (var i = 0; i < 9; i++) {
         var slot = container.getSlot("slotGrid" + i);
@@ -210,27 +229,20 @@ function returnGridItems(container) {
             try {
                 var player = new PlayerActor(Player.get());
                 player.addItemToInventory(slot.id, slot.count, slot.data, slot.extra || null, true);
-            } catch (e) { debugLog("returnGridItems error: " + e); }
+            } catch (e) {}
             container.setSlot("slotGrid" + i, 0, 0, 0);
         }
     }
     container.sendChanges();
 }
 
-// Handle recipe slot click
 function onRecipeSlotClick(index, container) {
-    debugLog_ui("onRecipeSlotClick: index=" + index + " cachedRecipes.length=" + _cachedRecipes.length);
+    debugLog("onRecipeSlotClick: index=" + index + " cached=" + _cachedRecipes.length);
     if (index >= _cachedRecipes.length) { debugLog("  index out of range"); return; }
-    if (!container) {
-        debugLog("  no container");
-        return;
-    }
-    debugLog("  container=" + (container ? "valid" : "null"));
+    if (!container) { debugLog("  no container"); return; }
 
     var recipe = _cachedRecipes[index];
-    var result = recipe.getResult();
-    debugLog_ui("  selected recipe: result id=" + (result ? result.id : "null"));
+    debugLog("  selected: result id=" + (recipe.getResult() ? recipe.getResult().id : "null"));
     populateGridFromRecipe(recipe, container);
     updateResultSlot(container);
-    debugLog_ui("onRecipeSlotClick done");
 }
