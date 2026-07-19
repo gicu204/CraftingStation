@@ -62,7 +62,7 @@ var recipeWindow = new UI.Window({
     location: {
         x: 5,
         y: 40,
-        width: 360,
+        width: 240,
         height: screenHeight - 45,
     },
     drawing: [
@@ -71,12 +71,12 @@ var recipeWindow = new UI.Window({
     elements: recipeWindowElements,
     IsDynamic: true,
 });
-debugLog_ui("Recipe window created (IsDynamic=true)");
+debugLog_ui("Recipe window created");
 setupRecipeWindow(recipeWindow);
 
 // Crafting grid panel (center-top) — 3x3 grid + result + buttons
-var craftSlotSize = 85;
-var craftPad = 6;
+var craftSlotSize = 95;
+var craftPad = 7;
 var craftGridStartX = 15;
 var craftGridStartY = 6;
 
@@ -98,10 +98,10 @@ function CraftingGridElements() {
 var craftingGridElements = CraftingGridElements();
 
 // Result slot (right of grid, clickable — tap=1, long=stack)
-var resultSlotSize = 60;
+var resultSlotSize = 82;
 craftingGridElements["slotResult"] = {
     type: "slot",
-    x: 300,
+    x: 330,
     y: craftGridStartY + (3 * (craftSlotSize + craftPad) - resultSlotSize) / 2,
     size: resultSlotSize,
     clicker: {
@@ -335,9 +335,9 @@ var gridScrollY = Math.max(0, gridAreaHeight - gridWindowCap);
 
 var craftingGridWindow = new UI.Window({
     location: {
-        x: 370,
+        x: 250,
         y: 40,
-        width: 360,
+        width: 440,
         height: gridWindowCap,
         scrollY: gridScrollY,
     },
@@ -375,10 +375,10 @@ debugLog_ui("Inventory slots created: " + Object.keys(invElements).length);
 
 var inventoryWindow = new UI.Window({
     location: {
-        x: 370,
-        y: 40 + gridWindowCap + 2 - Math.floor(invSlotSize / 2),
-        width: 360,
-        height: screenHeight - (40 + gridWindowCap + 2 - Math.floor(invSlotSize / 2) + 5),
+        x: 250,
+        y: 40 + gridWindowCap + 2,
+        width: 440,
+        height: screenHeight - (40 + gridWindowCap + 7),
         scrollY: invSlotSize / 2.74 * Math.trunc(36 / invInRow) * 2,
     },
     drawing: [
@@ -392,9 +392,9 @@ debugLog_ui("Inventory window created, y=" + (40 + gridWindowCap + 2) + " scroll
 // Connected chests panel (right side)
 var chestsWindow = new UI.Window({
     location: {
-        x: 740,
+        x: 695,
         y: 40,
-        width: 255,
+        width: 300,
         height: screenHeight - 45,
     },
     drawing: [
