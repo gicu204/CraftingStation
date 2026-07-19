@@ -2,10 +2,10 @@
 // Shows ALL recipe results, darkens unavailable ones (Refined Storage pattern)
 
 var recipeWindowWidth = 240;
-var recipeSlotSize = 56;
-var recipeColumns = 4;
-var recipeSlotPadding = 3;
-var recipeStartX = 6;
+var recipeSlotSize = 72;
+var recipeColumns = 3;
+var recipeSlotPadding = 6;
+var recipeStartX = 10;
 var recipeStartY = 6;
 
 var _cachedRecipes = [];

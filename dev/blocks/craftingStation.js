@@ -129,7 +129,7 @@ function refillGridFromChests(container, recipe, playerUid) {
             var entry = entries[i];
             if (!entry || entry.id <= 0) continue;
             var gridSlot = container.getSlot("slotGrid" + i);
-            var need = entry.count;
+            var need = entry.count || 1;
             var have = gridSlot ? gridSlot.count : 0;
             var missing = need - have;
             if (missing <= 0) continue;
@@ -169,7 +169,7 @@ function recipeMatchesGrid(container, recipe) {
             var entry = entries[i];
             var slot = container.getSlot("slotGrid" + i);
             if (entry && entry.id > 0) {
-                if (!slot || slot.id != entry.id || slot.count < entry.count) return false;
+                if (!slot || slot.id != entry.id || slot.count < (entry.count || 1)) return false;
             } else {
                 if (slot && slot.id > 0) return false;
             }
@@ -330,23 +330,20 @@ craftingGridElements["labelAutoFill"] = {
 };
 
 var gridAreaHeight = buttonY + buttonH + 10;
-var gridWindowCap = Math.min(gridAreaHeight, screenHeight * 0.50);
-var gridScrollY = Math.max(0, gridAreaHeight - gridWindowCap);
 
 var craftingGridWindow = new UI.Window({
     location: {
         x: 250,
         y: 40,
         width: 440,
-        height: gridWindowCap,
-        scrollY: gridScrollY,
+        height: gridAreaHeight,
     },
     drawing: [
         { type: "background", color: android.graphics.Color.parseColor("#3a3a4a") }
     ],
     elements: craftingGridElements
 });
-debugLog_ui("Crafting grid window created, height=" + gridWindowCap + " scrollY=" + gridScrollY);
+debugLog_ui("Crafting grid window created, height=" + gridAreaHeight);
 
 // Player inventory panel (center-bottom) — standard invSlot layout
 var invSlotSize = 167;
@@ -376,9 +373,9 @@ debugLog_ui("Inventory slots created: " + Object.keys(invElements).length);
 var inventoryWindow = new UI.Window({
     location: {
         x: 250,
-        y: 40 + gridWindowCap + 2,
+        y: 40 + gridAreaHeight,
         width: 440,
-        height: screenHeight - (40 + gridWindowCap + 7),
+        height: screenHeight - (40 + gridAreaHeight),
         scrollY: invSlotSize / 2.74 * Math.trunc(36 / invInRow) * 2,
     },
     drawing: [
@@ -387,7 +384,7 @@ var inventoryWindow = new UI.Window({
     elements: invElements
 });
 inventoryWindow.setInventoryNeeded(true);
-debugLog_ui("Inventory window created, y=" + (40 + gridWindowCap + 2) + " scrollY=" + (invSlotSize / 2.74 * Math.trunc(36 / invInRow)));
+debugLog_ui("Inventory window created, y=" + (40 + gridAreaHeight) + " scrollY=" + (invSlotSize / 2.74 * Math.trunc(36 / invInRow)));
 
 // Connected chests panel (right side)
 var chestsWindow = new UI.Window({
@@ -449,7 +446,16 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
 
         this.container.setGlobalAddTransferPolicy(function(container, name, id, count, data, extra, time) {
             if (name.indexOf("slotGrid") == 0) {
-                return Math.min(count, Item.getMaxStack(id) - container.getSlot(name).count);
+                var cur = container.getSlot(name);
+                // Different items → allow full stack (SWAP will replace)
+                if (cur && cur.id != 0 && (cur.id != id || cur.data != data)) {
+                    debugLog_event("TransferPolicy slotGrid SWAP: allowing " + count + " of id=" + id + " (slot has different item)");
+                    return count;
+                }
+                // Same items → limit by max stack
+                var limit = Math.min(count, Item.getMaxStack(id) - (cur ? cur.count : 0));
+                debugLog_event("TransferPolicy slotGrid: " + count + " of id=" + id + " → limit=" + limit);
+                return limit;
             }
             if (name == "slotResult") return 0;
             debugLog_event("TransferPolicy: accepting " + count + " of id=" + id + " into slot '" + name + "'");
@@ -1075,7 +1081,7 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
                     var entry = entries[i];
                     if (!entry || entry.id <= 0) continue;
                     var gridSlot = this.container.getSlot("slotGrid" + i);
-                    var need = entry.count;
+                    var need = entry.count || 1;
                     var have = gridSlot ? gridSlot.count : 0;
                     var missing = need - have;
                     if (missing <= 0) continue;
