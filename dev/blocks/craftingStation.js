@@ -178,6 +178,21 @@ function recipeMatchesGrid(container, recipe) {
     } catch (e) { return false; }
 }
 
+// Server-side: return grid items to player inventory
+function returnGridToInventory(container, playerUid) {
+    try {
+        var player = new PlayerActor(playerUid);
+        if (!player) return;
+        for (var i = 0; i < 9; i++) {
+            var slot = container.getSlot("slotGrid" + i);
+            if (slot && slot.count > 0) {
+                player.addItemToInventory(slot.id, slot.count, slot.data, slot.extra || null, true);
+                container.setSlot("slotGrid" + i, 0, 0, 0);
+            }
+        }
+    } catch (e) { debugLog("returnGridToInventory error: " + e); }
+}
+
 // Updates the result slot to show current recipe preview
 function updateResultSlot(container) {
     var result = Recipes.getRecipeResult(container, "");
@@ -864,6 +879,75 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
             this.container.sendChanges();
             updateResultSlot(this.container);
             debugLog_event("gridToGrid MOVE done: " + _count);
+        },
+
+        selectRecipe: function(eventData, connectedClient) {
+            debugLog("selectRecipe: player=" + connectedClient.getPlayerUid() + " index=" + eventData.index);
+            var recipe = _cachedRecipes && _cachedRecipes[eventData.index];
+            if (!recipe) { debugLog("  recipe not found at index " + eventData.index); return; }
+            var result = recipe.getResult();
+            if (!result) { debugLog("  recipe has no result"); return; }
+            debugLog("  selected result id=" + result.id);
+
+            // Return current grid items to player inventory
+            returnGridToInventory(this.container, connectedClient.getPlayerUid());
+
+            // Fill grid with recipe ingredients from chests + inventory
+            var placed = 0;
+            try {
+                var entries = recipe.getSortedEntries();
+                for (var i = 0; i < 9; i++) {
+                    var entry = entries[i];
+                    if (entry && entry.id > 0) {
+                        var eid = entry.id;
+                        var edata = entry.data;
+                        var need = entry.count || 1;
+
+                        // Try to pull from chests first via StorageInterface
+                        var taken = 0;
+                        for (var side = 0; side < 6 && taken < need; side++) {
+                            try {
+                                var storage = StorageInterface.getNeighbourStorage(this.blockSource, {x: this.x, y: this.y, z: this.z}, side);
+                                if (storage) {
+                                    var slots = storage.getContainerSlots();
+                                    for (var si = 0; si < slots.length && taken < need; si++) {
+                                        var chestSlot = storage.getSlot(slots[si]);
+                                        if (chestSlot && chestSlot.id == eid && (chestSlot.data == edata || edata == -1) && chestSlot.count > 0) {
+                                            var take = Math.min(chestSlot.count, need - taken);
+                                            storage.setSlot(slots[si], chestSlot.id, chestSlot.count - take, chestSlot.data, chestSlot.extra);
+                                            taken += take;
+                                        }
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+
+                        // Then pull from player inventory if still needed
+                        if (taken < need) {
+                            try {
+                                var player = new PlayerActor(connectedClient.getPlayerUid());
+                                for (var pi = 0; pi < 36 && taken < need; pi++) {
+                                    var invSlot = player.getInventorySlot(pi);
+                                    if (invSlot && invSlot.id == eid && (invSlot.data == edata || edata == -1) && invSlot.count > 0) {
+                                        var take = Math.min(invSlot.count, need - taken);
+                                        player.setInventorySlot(pi, invSlot.id, invSlot.count - take, invSlot.data, invSlot.extra);
+                                        taken += take;
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+
+                        this.container.setSlot("slotGrid" + i, eid, taken, edata > -1 ? edata : 0);
+                        if (taken > 0) placed++;
+                    } else {
+                        this.container.setSlot("slotGrid" + i, 0, 0, 0);
+                    }
+                }
+            } catch (e) { debugLog("selectRecipe fill error: " + e); }
+
+            this.container.sendChanges();
+            updateResultSlot(this.container);
+            debugLog("selectRecipe done: " + placed + " slots filled");
         },
 
         craftOnce: function(eventData, connectedClient) {

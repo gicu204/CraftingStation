@@ -142,45 +142,50 @@ function refreshRecipeList(container, playerUid) {
         return;
     }
 
-    // Run in background thread (Refined Storage pattern)
+    // Calculate craftable status in background thread
+    var totalToShow = Math.min(allRecipes.length, totalRecipeSlots);
     var thread = java.lang.Thread({
         run: function() {
             try {
-                var totalToShow = Math.min(allRecipes.length, totalRecipeSlots);
                 var darkenMap = {};
-
-                // Show first N recipes, check craftable status
+                var slotData = [];
                 for (var r = 0; r < totalToShow; r++) {
                     var recipe = allRecipes[r];
                     var result = recipe.getResult();
-                    if (result) {
-                        container.setSlot("recipeSlot" + r, result.id, result.count, result.data, result.extra || null);
-                    } else {
-                        container.setSlot("recipeSlot" + r, 0, 0, 0);
-                    }
+                    slotData.push(result ? { id: result.id, count: result.count, data: result.data, extra: result.extra || null } : { id: 0, count: 0, data: 0, extra: null });
                     darkenMap["recipeSlot" + r] = !isRecipeCraftable(recipe, container, playerUid);
                     if (r % 50 == 0) java.lang.Thread.yield();
                 }
 
-                // Clear remaining slots
-                for (var r = totalToShow; r < totalRecipeSlots; r++) {
-                    container.setSlot("recipeSlot" + r, 0, 0, 0);
-                }
-
                 _cachedRecipes = allRecipes.slice(0, totalToShow);
                 _recipeDarkenMap = darkenMap;
-                container.sendChanges();
 
-                // Apply darken on main thread
+                // Update container and UI on main thread
                 UI.getContext().runOnUiThread(new java.lang.Runnable({
                     run: function() {
+                        for (var r = 0; r < totalToShow; r++) {
+                            container.setSlot("recipeSlot" + r, slotData[r].id, slotData[r].count, slotData[r].data, slotData[r].extra);
+                        }
+                        for (var r = totalToShow; r < totalRecipeSlots; r++) {
+                            container.setSlot("recipeSlot" + r, 0, 0, 0);
+                        }
+                        container.sendChanges();
+
                         for (var key in darkenMap) {
                             if (recipeWindowElements[key]) {
                                 recipeWindowElements[key].darken = darkenMap[key];
                             }
                         }
+
+                        // Re-apply scroll after content update
+                        var totalRows = Math.ceil(totalRecipeSlots / recipeColumns);
+                        var totalHeight = totalRows * (recipeSlotSize + recipeSlotPadding) + recipeStartY;
+                        recipeWindow.location.setScroll(0, Math.max(0, totalHeight - recipeWindow.location.height));
                         recipeWindow.forceRefresh();
-                        debugLog("refreshRecipeList: " + totalToShow + " recipes shown, " + Object.keys(darkenMap).filter(function(k) { return darkenMap[k]; }).length + " darkened");
+
+                        var darkened = 0;
+                        for (var k in darkenMap) { if (darkenMap[k]) darkened++; }
+                        debugLog("refreshRecipeList: " + totalToShow + " recipes shown, " + darkened + " darkened");
                     }
                 }));
             } catch (e) {
@@ -190,36 +195,6 @@ function refreshRecipeList(container, playerUid) {
     });
     thread.setPriority(java.lang.Thread.MIN_PRIORITY);
     thread.start();
-}
-
-// Populate crafting grid from recipe
-function populateGridFromRecipe(recipe, container) {
-    if (!recipe) return;
-    var result = recipe.getResult();
-    debugLog("populateGridFromRecipe: result=" + (result ? result.id : "null"));
-
-    returnGridItems(container);
-
-    var placed = 0;
-    try {
-        var entries = recipe.getSortedEntries();
-        for (var i = 0; i < 9; i++) {
-            var entry = entries[i];
-            if (entry && entry.id > 0) {
-                var eid = entry.id;
-                var edata = entry.data;
-                var need = entry.count || 1;
-                var avail = countAvailableItem(eid, edata, container, Player.get());
-                var count = Math.min(avail, need);
-                container.setSlot("slotGrid" + i, eid, count, edata > -1 ? edata : 0);
-                if (count > 0) placed++;
-            } else {
-                container.setSlot("slotGrid" + i, 0, 0, 0);
-            }
-        }
-    } catch (e) { debugLog("populateGridFromRecipe error: " + e); }
-    container.sendChanges();
-    debugLog("populateGridFromRecipe done: " + placed + " slots with items");
 }
 
 function returnGridItems(container) {
@@ -243,6 +218,6 @@ function onRecipeSlotClick(index, container) {
 
     var recipe = _cachedRecipes[index];
     debugLog("  selected: result id=" + (recipe.getResult() ? recipe.getResult().id : "null"));
-    populateGridFromRecipe(recipe, container);
-    updateResultSlot(container);
+
+    container.sendEvent("selectRecipe", { index: index });
 }
