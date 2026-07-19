@@ -62,7 +62,7 @@ var recipeWindow = new UI.Window({
     location: {
         x: 5,
         y: 40,
-        width: 240,
+        width: 320,
         height: screenHeight - 45,
     },
     drawing: [
@@ -335,9 +335,9 @@ var gridScrollY = Math.max(0, gridAreaHeight - gridWindowCap);
 
 var craftingGridWindow = new UI.Window({
     location: {
-        x: 250,
+        x: 330,
         y: 40,
-        width: 440,
+        width: 410,
         height: gridWindowCap,
         scrollY: gridScrollY,
     },
@@ -375,9 +375,9 @@ debugLog_ui("Inventory slots created: " + Object.keys(invElements).length);
 
 var inventoryWindow = new UI.Window({
     location: {
-        x: 250,
+        x: 330,
         y: 40 + gridWindowCap + 2,
-        width: 440,
+        width: 410,
         height: screenHeight - (40 + gridWindowCap + 7),
         scrollY: invSlotSize / 2.74 * Math.trunc(36 / invInRow),
     },
@@ -392,9 +392,9 @@ debugLog_ui("Inventory window created, y=" + (40 + gridWindowCap + 2) + " scroll
 // Connected chests panel (right side)
 var chestsWindow = new UI.Window({
     location: {
-        x: 695,
+        x: 745,
         y: 40,
-        width: 300,
+        width: 250,
         height: screenHeight - 45,
     },
     drawing: [
@@ -903,6 +903,10 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
                         var edata = entry.data;
                         var need = entry.count || 1;
 
+                        // Track actual data/extra from items found (for wildcard entries like any wood)
+                        var actualData = edata > -1 ? edata : -1;
+                        var actualExtra = null;
+
                         // Try to pull from chests first via StorageInterface
                         var taken = 0;
                         for (var side = 0; side < 6 && taken < need; side++) {
@@ -914,6 +918,8 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
                                         var chestSlot = storage.getSlot(slots[si]);
                                         if (chestSlot && chestSlot.id == eid && (chestSlot.data == edata || edata == -1) && chestSlot.count > 0) {
                                             var take = Math.min(chestSlot.count, need - taken);
+                                            if (actualData == -1) actualData = chestSlot.data;
+                                            if (!actualExtra) actualExtra = chestSlot.extra || null;
                                             storage.setSlot(slots[si], chestSlot.id, chestSlot.count - take, chestSlot.data, chestSlot.extra);
                                             taken += take;
                                         }
@@ -930,6 +936,8 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
                                     var invSlot = player.getInventorySlot(pi);
                                     if (invSlot && invSlot.id == eid && (invSlot.data == edata || edata == -1) && invSlot.count > 0) {
                                         var take = Math.min(invSlot.count, need - taken);
+                                        if (actualData == -1) actualData = invSlot.data;
+                                        if (!actualExtra) actualExtra = invSlot.extra || null;
                                         player.setInventorySlot(pi, invSlot.id, invSlot.count - take, invSlot.data, invSlot.extra);
                                         taken += take;
                                     }
@@ -937,7 +945,7 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
                             } catch (e) {}
                         }
 
-                        this.container.setSlot("slotGrid" + i, eid, taken, edata > -1 ? edata : 0);
+                        this.container.setSlot("slotGrid" + i, eid, taken, actualData > -1 ? actualData : 0, actualExtra);
                         if (taken > 0) placed++;
                     } else {
                         this.container.setSlot("slotGrid" + i, 0, 0, 0);

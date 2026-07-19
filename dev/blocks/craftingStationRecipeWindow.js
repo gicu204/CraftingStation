@@ -1,10 +1,10 @@
-// Recipe list panel — left side (240px)
+// Recipe list panel — left side (320px)
 // Shows ALL recipe results, darkens unavailable ones (Refined Storage pattern)
 
-var recipeSlotSize = 72;
-var recipeColumns = 3;
-var recipeSlotPadding = 6;
-var recipeStartX = 10;
+var recipeSlotSize = 148;
+var recipeColumns = 2;
+var recipeSlotPadding = 8;
+var recipeStartX = 12;
 var recipeStartY = 8;
 
 var _cachedRecipes = [];
@@ -142,22 +142,40 @@ function refreshRecipeList(container, playerUid) {
         return;
     }
 
+    // Deduplicate recipes by result ID (keep first occurrence of each result)
+    var seenResults = {};
+    var deduped = [];
+    for (var r = 0; r < allRecipes.length; r++) {
+        var res = allRecipes[r].getResult();
+        if (!res) continue;
+        var key = res.id + "_" + res.data;
+        if (!seenResults[key]) {
+            seenResults[key] = true;
+            deduped.push(allRecipes[r]);
+        }
+    }
+    debugLog("refreshRecipeList: " + allRecipes.length + " total, " + deduped.length + " unique results");
+
+    var totalToShow = Math.min(deduped.length, totalRecipeSlots);
+    var totalRows = Math.ceil(totalToShow / recipeColumns);
+    var totalHeight = totalRows * (recipeSlotSize + recipeSlotPadding) + recipeStartY;
+    var scrollNeeded = Math.max(0, totalHeight - recipeWindow.location.height);
+
     // Calculate craftable status in background thread
-    var totalToShow = Math.min(allRecipes.length, totalRecipeSlots);
     var thread = java.lang.Thread({
         run: function() {
             try {
                 var darkenMap = {};
                 var slotData = [];
                 for (var r = 0; r < totalToShow; r++) {
-                    var recipe = allRecipes[r];
+                    var recipe = deduped[r];
                     var result = recipe.getResult();
                     slotData.push(result ? { id: result.id, count: result.count, data: result.data, extra: result.extra || null } : { id: 0, count: 0, data: 0, extra: null });
                     darkenMap["recipeSlot" + r] = !isRecipeCraftable(recipe, container, playerUid);
                     if (r % 50 == 0) java.lang.Thread.yield();
                 }
 
-                _cachedRecipes = allRecipes.slice(0, totalToShow);
+                _cachedRecipes = deduped.slice(0, totalToShow);
                 _recipeDarkenMap = darkenMap;
 
                 // Update container and UI on main thread
@@ -177,15 +195,12 @@ function refreshRecipeList(container, playerUid) {
                             }
                         }
 
-                        // Re-apply scroll after content update
-                        var totalRows = Math.ceil(totalRecipeSlots / recipeColumns);
-                        var totalHeight = totalRows * (recipeSlotSize + recipeSlotPadding) + recipeStartY;
-                        recipeWindow.location.setScroll(0, Math.max(0, totalHeight - recipeWindow.location.height));
+                        recipeWindow.location.setScroll(0, scrollNeeded);
                         recipeWindow.forceRefresh();
 
                         var darkened = 0;
                         for (var k in darkenMap) { if (darkenMap[k]) darkened++; }
-                        debugLog("refreshRecipeList: " + totalToShow + " recipes shown, " + darkened + " darkened");
+                        debugLog("refreshRecipeList: " + totalToShow + " unique recipes, " + darkened + " darkened, scroll=" + scrollNeeded);
                     }
                 }));
             } catch (e) {
