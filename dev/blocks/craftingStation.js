@@ -62,7 +62,7 @@ var recipeWindow = new UI.Window({
     location: {
         x: 5,
         y: 40,
-        width: 320,
+        width: 360,
         height: screenHeight - 45,
     },
     drawing: [
@@ -75,8 +75,8 @@ debugLog_ui("Recipe window created (IsDynamic=true)");
 setupRecipeWindow(recipeWindow);
 
 // Crafting grid panel (center-top) — 3x3 grid + result + buttons
-var craftSlotSize = 95;
-var craftPad = 7;
+var craftSlotSize = 85;
+var craftPad = 6;
 var craftGridStartX = 15;
 var craftGridStartY = 6;
 
@@ -98,10 +98,10 @@ function CraftingGridElements() {
 var craftingGridElements = CraftingGridElements();
 
 // Result slot (right of grid, clickable — tap=1, long=stack)
-var resultSlotSize = 82;
+var resultSlotSize = 60;
 craftingGridElements["slotResult"] = {
     type: "slot",
-    x: 330,
+    x: 300,
     y: craftGridStartY + (3 * (craftSlotSize + craftPad) - resultSlotSize) / 2,
     size: resultSlotSize,
     clicker: {
@@ -335,9 +335,9 @@ var gridScrollY = Math.max(0, gridAreaHeight - gridWindowCap);
 
 var craftingGridWindow = new UI.Window({
     location: {
-        x: 330,
+        x: 370,
         y: 40,
-        width: 410,
+        width: 360,
         height: gridWindowCap,
         scrollY: gridScrollY,
     },
@@ -375,11 +375,11 @@ debugLog_ui("Inventory slots created: " + Object.keys(invElements).length);
 
 var inventoryWindow = new UI.Window({
     location: {
-        x: 330,
-        y: 40 + gridWindowCap + 2,
-        width: 410,
-        height: screenHeight - (40 + gridWindowCap + 7),
-        scrollY: invSlotSize / 2.74 * Math.trunc(36 / invInRow),
+        x: 370,
+        y: 40 + gridWindowCap + 2 - Math.floor(invSlotSize / 2),
+        width: 360,
+        height: screenHeight - (40 + gridWindowCap + 2 - Math.floor(invSlotSize / 2) + 5),
+        scrollY: invSlotSize / 2.74 * Math.trunc(36 / invInRow) * 2,
     },
     drawing: [
         { type: "background", color: android.graphics.Color.YELLOW }
@@ -392,9 +392,9 @@ debugLog_ui("Inventory window created, y=" + (40 + gridWindowCap + 2) + " scroll
 // Connected chests panel (right side)
 var chestsWindow = new UI.Window({
     location: {
-        x: 745,
+        x: 740,
         y: 40,
-        width: 250,
+        width: 255,
         height: screenHeight - 45,
     },
     drawing: [
@@ -579,16 +579,22 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
 
                 if (_slot1) {
                     var chest = StorageInterface.getNeighbourStorage(this.blockSource, {x: this.x, y: this.y, z: this.z}, _slot1.side);
+                    var beforeChest1 = chest.getSlot(_slot1.slot);
+                    debugLog_event("  SWAP chest1[" + _slot1.side + ":" + _slot1.slot + "] before: id=" + beforeChest1.id + " count=" + beforeChest1.count + " data=" + beforeChest1.data);
                     chest.setSlot(_slot1.slot, slot1_id, slot1_count, slot1_data, slot1_extra);
-                    debugLog_event("  SWAP: chest[" + _slot1.side + ":" + _slot1.slot + "] ← id=" + slot1_id + " count=" + slot1_count);
+                    var afterChest1 = chest.getSlot(_slot1.slot);
+                    debugLog_event("  SWAP chest1[" + _slot1.side + ":" + _slot1.slot + "] after: id=" + afterChest1.id + " count=" + afterChest1.count + " data=" + afterChest1.data);
                 } else {
                     debugLog_event("  SWAP: slot1 not a chest slot, skipping chest sync");
                 }
 
                 if (_slot2) {
                     var chest2 = StorageInterface.getNeighbourStorage(this.blockSource, {x: this.x, y: this.y, z: this.z}, _slot2.side);
+                    var beforeChest2 = chest2.getSlot(_slot2.slot);
+                    debugLog_event("  SWAP chest2[" + _slot2.side + ":" + _slot2.slot + "] before: id=" + beforeChest2.id + " count=" + beforeChest2.count + " data=" + beforeChest2.data);
                     chest2.setSlot(_slot2.slot, slot2_id, slot2_count, slot2_data, slot2_extra);
-                    debugLog_event("  SWAP: chest[" + _slot2.side + ":" + _slot2.slot + "] ← id=" + slot2_id + " count=" + slot2_count);
+                    var afterChest2 = chest2.getSlot(_slot2.slot);
+                    debugLog_event("  SWAP chest2[" + _slot2.side + ":" + _slot2.slot + "] after: id=" + afterChest2.id + " count=" + afterChest2.count + " data=" + afterChest2.data);
                 } else {
                     debugLog_event("  SWAP: slot2 not a chest slot, skipping chest sync");
                 }
@@ -1052,7 +1058,15 @@ TileEntity.registerPrototype(BlockID.craftingStationBlock, {
         autoFillGrid: function(eventData, connectedClient) {
             debugLog("autoFillGrid called by player=" + connectedClient.getPlayerUid());
             var recipe = Recipes.getRecipeByField(this.container, "");
-            if (!recipe) { debugLog("  no recipe by field"); return; }
+            if (!recipe) {
+                debugLog("  no recipe by field — grid may be empty or incomplete");
+                debugLog("  grid contents:");
+                for (var di = 0; di < 9; di++) {
+                    var ds = this.container.getSlot("slotGrid" + di);
+                    if (ds && ds.id > 0) debugLog("    slotGrid" + di + ": id=" + ds.id + " count=" + ds.count + " data=" + ds.data);
+                }
+                return;
+            }
             debugLog_event("  autoFill recipe result: id=" + recipe.getResult().id);
             try {
                 var entries = recipe.getSortedEntries();

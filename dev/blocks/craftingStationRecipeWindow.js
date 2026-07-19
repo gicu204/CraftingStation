@@ -1,10 +1,11 @@
-// Recipe list panel — left side (320px)
+// Recipe list panel — left side
 // Shows ALL recipe results, darkens unavailable ones (Refined Storage pattern)
 
-var recipeSlotSize = 148;
-var recipeColumns = 2;
-var recipeSlotPadding = 8;
-var recipeStartX = 12;
+var recipeWindowWidth = 360;
+var recipeSlotSize = 80;
+var recipeColumns = 4;
+var recipeSlotPadding = 5;
+var recipeStartX = 14;
 var recipeStartY = 8;
 
 var _cachedRecipes = [];
